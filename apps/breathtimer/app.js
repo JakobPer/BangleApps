@@ -95,19 +95,19 @@ function queueDraw() {
 
 function buzz() {
   if (settings.buzzEnabled) {
-    Bangle.buzz(100, 0.5);
+    Bangle.buzz(100, 0.1);
   }
 }
 
 function buzzLong() {
   if (settings.buzzEnabled) {
-    Bangle.buzz(300, 0.5);
+    Bangle.buzz(300, 0.1);
   }
 }
 
 function buzzDouble() {
   if (settings.buzzEnabled) {
-    Bangle.buzz(100, 0.5)
+    Bangle.buzz(100, 0.1)
       .then(result => {
         setTimeout(() => {
           Bangle.buzz(50, 1);
