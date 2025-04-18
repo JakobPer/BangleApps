@@ -57,6 +57,12 @@ const stages = {
   keepOut: 3,
 };
 
+// load settings
+var settings = Object.assign({
+  modeIndex: 0,
+  buzzEnabled: false
+}, require("Storage").readJSON("breathtimer.json", true) || {});
+
 
 // set some additional settings
 breath.w = g.getWidth(); // size of the background
@@ -67,14 +73,16 @@ breath.texty = breath.y + breath.size + breath.texty; // text position
 
 var wait = 100; // wait time, normally a minute
 var time = 0; // for time keeping
-var modeIndex = 0;
-var mode = modes[modeIndex]; // current mode
-var buzzEnabled = false; // if buzzing is enabled
+var mode = modes[settings.modeIndex]; // current mode
 var stage = undefined;
 
 
 // timeout used to update every minute
 var drawTimeout;
+
+function saveSettings() {
+  require("Storage").writeJSON("breathtimer.json", settings);
+}
 
 // schedule a draw for the next minute
 function queueDraw() {
@@ -86,19 +94,19 @@ function queueDraw() {
 }
 
 function buzz() {
-  if (buzzEnabled) {
+  if (settings.buzzEnabled) {
     Bangle.buzz(100, 0.5);
   }
 }
 
 function buzzLong() {
-  if (buzzEnabled) {
+  if (settings.buzzEnabled) {
     Bangle.buzz(300, 0.5);
   }
 }
 
 function buzzDouble() {
-  if (buzzEnabled) {
+  if (settings.buzzEnabled) {
     Bangle.buzz(100, 0.5)
       .then(result => {
         setTimeout(() => {
@@ -206,7 +214,7 @@ function draw() {
   g.setFontAlign(-1, -1).setFont(breath.font, breath.fontsize).setColor(breath.textcolor);
   g.drawString(mode.title, padding, padding);
   g.setFontAlign(1, -1).setFont(breath.font, breath.fontsize).setColor(breath.textcolor);
-  g.drawString(buzzEnabled ? "[~]" : "[  ]", 176 - padding, padding);
+  g.drawString(settings.buzzEnabled ? "[~]" : "[  ]", 176 - padding, padding);
 
   // queue draw
   queueDraw();
@@ -218,19 +226,21 @@ const height = g.getHeight();
 Bangle.on('touch', (button, info) => {
   // top right
   if (info.x > width * 0.75 && info.y < height * 0.25) {
-    buzzEnabled = !buzzEnabled;
+    settings.buzzEnabled = !settings.buzzEnabled;
+    saveSettings();
   }
 });
 
 Bangle.on('swipe', (dirLR, dirUD) => {
   if (dirUD != 0) {
-    modeIndex = (modeIndex - dirUD) % modes.length;
-    if (modeIndex < 0) {
-      modeIndex += modes.length;
+    settings.modeIndex = (settings.modeIndex - dirUD) % modes.length;
+    if (settings.modeIndex < 0) {
+      settings.modeIndex += modes.length;
     }
-    mode = modes[modeIndex];
+    mode = modes[settings.modeIndex];
     time = 0;
     stage = undefined;
+    saveSettings();
   }
 });
 

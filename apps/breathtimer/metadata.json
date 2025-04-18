@@ -21,6 +21,10 @@
       "url": "app.js"
     },
     {
+      "name": "breathtimer.json",
+      "url": "breathtimer.json"
+    },
+    {
       "name": "breathtimer.img",
       "url": "app-icon.js",
       "evaluate": true
