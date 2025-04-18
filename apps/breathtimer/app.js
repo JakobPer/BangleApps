@@ -14,12 +14,14 @@ const breath = {
   x: 0, y: 0, w: 0, h: 0,
   size: 60,
   thickness: 2,
+  ringSize: 10,
+  dotSize: 10,
 
   bgcolor: g.theme.bg,
   incolor: g.toColor(0, 1, 0),
   keepcolor: g.toColor(1, 1, 0),
   outcolor: g.toColor(0, 0, 1),
-  keepoutcolor: g.toColor(1, 0, 0),
+  dotcolor: g.toColor(1, 0, 0),
 
   font: "HaxorNarrow7x17", fontsize: 1,
   textcolor: g.theme.fg,
@@ -60,7 +62,8 @@ const stages = {
 // load settings
 var settings = Object.assign({
   modeIndex: 0,
-  buzzEnabled: false
+  buzzEnabled: false,
+  uiMode: 1
 }, require("Storage").readJSON("breathtimer.json", true) || {});
 
 
@@ -75,6 +78,12 @@ var wait = 100; // wait time, normally a minute
 var time = 0; // for time keeping
 var mode = modes[settings.modeIndex]; // current mode
 var stage = undefined;
+
+// vertex cache for the ring
+var vertsIn = {};
+var vertsKeepIn = {};
+var vertsOut = {};
+var vertsKeepOut = {};
 
 
 // timeout used to update every minute
@@ -112,10 +121,75 @@ function buzzDouble() {
         setTimeout(() => {
           Bangle.buzz(50, 1);
         }, 50);
-      })
+      });
   }
 }
 
+// generate pie shaped vertices
+function genVerts(angle, angleOffset) {
+  if (angle <= 0) {
+    return {};
+  }
+
+  let verts = []
+  verts.push(breath.x);
+  verts.push(breath.y);
+  const interval = (10.0 * 2.0 * Math.PI) / 360.0;
+  for (let i = 0.0; i < angle; i += interval) {
+    const x = Math.sin(i + angleOffset) * breath.size + breath.x;
+    const y = (-Math.cos(i + angleOffset)) * breath.size + breath.y;
+    verts.push(x);
+    verts.push(y);
+  }
+  let x = Math.sin(angle + angleOffset) * breath.size + breath.x;
+  let y = (-Math.cos(angle + angleOffset)) * breath.size + breath.y;
+  verts.push(x);
+  verts.push(y);
+  x = Math.sin(angle * 0.5 + angleOffset) * breath.size * 0.5 + breath.x;
+  y = (-Math.cos(angle * 0.5 + angleOffset)) * breath.size * 0.5 + breath.y;
+  return { pos: verts, x: x, y: y };
+}
+
+function updateVerts() {
+  if (settings.uiMode != 1) {
+    vertsIn = {};
+    vertsKeepIn = {};
+    vertsOut = {};
+    vertsKeepOut = {};
+    return;
+  }
+  const max = mode.in + mode.out + mode.keepIn + mode.keepOut;
+  const frac = 2.0 * Math.PI / max;
+
+  let angle = mode.in * frac;
+  let angleOffset = 0;
+  vertsIn = genVerts(angle, angleOffset);
+
+  angleOffset += angle;
+  angle = mode.keepIn * frac;
+  vertsKeepIn = genVerts(angle, angleOffset);
+
+  angleOffset += angle;
+  angle = mode.out * frac;
+  vertsOut = genVerts(angle, angleOffset);
+
+  if (mode.keepOut > 0) {
+    angleOffset += angle;
+    angle = mode.keepOut * frac;
+    vertsKeepOut = genVerts(angle, angleOffset);
+  }
+  else {
+    vertsKeepOut = {};
+  }
+}
+
+function drawPie(verts, color) {
+  if (verts) {
+    g.setColor(color);
+    g.drawPoly(verts.pos, true);
+    g.floodFill(verts.x, verts.y, color);
+  }
+}
 
 // main function
 function draw() {
@@ -174,21 +248,42 @@ function draw() {
 
 
   // breath area
-  g.setColor(circleColor);
-  g.fillCircle(breath.x, breath.y, breath.size + breath.thickness);
-  g.setColor(breath.bgcolor);
-  g.fillCircle(breath.x, breath.y, breath.size);
-
-  if (stage == stages.keepOut) {
+  if (settings.uiMode == 0) {
     g.setColor(circleColor);
-    g.fillCircle(breath.x, breath.y, breath.size * 0.5 + breath.thickness);
+    g.fillCircle(breath.x, breath.y, breath.size + breath.thickness);
     g.setColor(breath.bgcolor);
-    g.fillCircle(breath.x, breath.y, breath.size * 0.5);
-  }
+    g.fillCircle(breath.x, breath.y, breath.size);
 
-  // draw breath circle
-  g.setColor(fillColor);
-  g.fillCircle(breath.x, breath.y, breath.size * circle);
+    if (stage == stages.keepOut) {
+      g.setColor(circleColor);
+      g.fillCircle(breath.x, breath.y, breath.size * 0.5 + breath.thickness);
+      g.setColor(breath.bgcolor);
+      g.fillCircle(breath.x, breath.y, breath.size * 0.5);
+    }
+
+    // draw breath circle
+    g.setColor(fillColor);
+    g.fillCircle(breath.x, breath.y, breath.size * circle);
+  }
+  else {
+    drawPie(vertsIn, breath.incolor);
+    drawPie(vertsKeepIn, breath.keepcolor);
+    drawPie(vertsOut, breath.outcolor);
+    if (mode.keepOut > 0) {
+      drawPie(vertsKeepOut, breath.keepcolor);
+    }
+
+    g.setColor(breath.bgcolor);
+    g.fillCircle(breath.x, breath.y, breath.size - breath.ringSize);
+
+    const max = mode.in + mode.out + mode.keepIn + mode.keepOut;
+    const frac = 2.0 * Math.PI / max;
+    let angle = time * frac;
+    const x = Math.sin(angle) * (breath.size - breath.ringSize - breath.dotSize * 0.5) + breath.x;
+    const y = (-Math.cos(angle)) * (breath.size - breath.ringSize - breath.dotSize * 0.5) + breath.y;
+    g.setColor(breath.dotcolor);
+    g.fillCircle(x, y, breath.dotSize * 0.5);
+  }
 
   // draw text
   g.setFontAlign(0, 0).setFont(breath.font, breath.fontsize).setColor(breath.textcolor);
@@ -240,6 +335,7 @@ Bangle.on('swipe', (dirLR, dirUD) => {
     mode = modes[settings.modeIndex];
     time = 0;
     stage = undefined;
+    updateVerts();
     saveSettings();
   }
 });
@@ -249,6 +345,7 @@ g.clear();
 // draw immediately at first
 draw();
 
+updateVerts();
 // turning timeout off seems to prevent swipe/touch events???
 //Bangle.setLCDTimeout(0);
 // keep LCD on
