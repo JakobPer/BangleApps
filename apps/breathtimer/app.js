@@ -14,18 +14,47 @@ const breath = {
   size: 60,
 
   bgcolor: g.theme.bg,
-  incolor: g.theme.fg,
-  keepcolor: g.theme.fg,
-  outcolor: g.theme.fg,
+  incolor: g.toColor(0, 1, 0),
+  keepcolor: g.toColor(1, 1, 0),
+  outcolor: g.toColor(0, 0, 1),
+  keepoutcolor: g.toColor(1, 0, 0),
 
   font: "HaxorNarrow7x17", fontsize: 1,
   textcolor: g.theme.fg,
   texty: 18,
-
-  in: 4000,
-  keep: 7000,
-  out: 8000
 };
+
+const modes = {
+  box: {
+    title: "Box",
+    in: 4000,
+    keepIn: 4000,
+    out: 4000,
+    keepOut: 4000
+  },
+  fourTwoFour: {
+    title: "4-2-4",
+    in: 4000,
+    keepIn: 2000,
+    out: 4000,
+    keepOut: 0
+  },
+  fourSevenEight: {
+    title: "4-7-8",
+    in: 4000,
+    keepIn: 7000,
+    out: 8000,
+    keepOut: 0
+  }
+};
+
+const stages = {
+  in: 0,
+  keepIn: 1,
+  out: 2,
+  keepOut: 3,
+};
+
 
 // set some additional settings
 breath.w = g.getWidth(); // size of the background
@@ -36,6 +65,9 @@ breath.texty = breath.y + breath.size + breath.texty; // text position
 
 var wait = 100; // wait time, normally a minute
 var time = 0; // for time keeping
+var mode = modes.box; // current mode
+var buzz = true; // if buzzing is enabled
+var stage = undefined;
 
 
 // timeout used to update every minute
@@ -50,15 +82,30 @@ function queueDraw() {
   }, wait - (Date.now() % wait));
 }
 
+function buzz() {
+  Bangle.buzz(100, 0.5);
+}
+
+function buzzLong() {
+  Bangle.buzz(300, 0.5);
+}
+
+function buzzDouble() {
+  Bangle.buzz(100, 0.5)
+    .then(result => {
+      setTimeout(() => {
+        Bangle.buzz(50, 1);
+      }, 50);
+    })
+}
+
 
 // main function
 function draw() {
-  // make date object
-  //var date = new Date();
 
   // update current time
   time += wait - (Date.now() % wait);
-  if (time > breath.in + breath.keep + breath.out) time = 0; // reset time
+  if (time > mode.in + mode.keepIn + mode.out + mode.keepOut) time = 0; // reset time
 
   // Reset the state of the graphics library
   g.reset();
@@ -68,47 +115,74 @@ function draw() {
   g.fillRect(0, 0, breath.w, breath.h);
 
   // calculate circle size
+  let circleColor = breath.textcolor;
   var circle = 0;
-  if (time < breath.in) {
+  if (time < mode.in) {
     // breath in
-    circle = time / breath.in;
+    if (stage != stages.in) {
+      buzzLong();
+    }
+    stage = stages.in;
+    circle = time / mode.in;
     g.setColor(breath.incolor);
 
-  } else if (time < breath.in + breath.keep) {
+  } else if (time < mode.in + mode.keepIn) {
     // keep breath
+    if (stage != stages.keepIn) {
+      buzzDouble();
+    }
+    stage = stages.keepIn;
     circle = 1;
     g.setColor(breath.keepcolor);
 
-  } else if (time < breath.in + breath.keep + breath.out) {
+  } else if (time < mode.in + mode.keepIn + mode.out) {
     // breath out
-    circle = ((breath.in + breath.keep + breath.out) - time) / breath.out;
+    if (stage != stages.out) {
+      buzz();
+    }
+    stage = stages.out;
+    circle = ((mode.in + mode.keepIn + mode.out) - time) / mode.out;
     g.setColor(breath.outcolor);
-
+  } else if (time < mode.in + mode.keepIn + mode.out + mode.keepOut) {
+    // keep breath
+    if (stage != stages.keepOut) {
+      buzzDouble();
+    }
+    stage = stages.keepOut;
+    circle = 0;
+    g.setColor(breath.keepcolor);
+    circleColor = breath.keepoutcolor;
   }
 
   // draw breath circle
   g.fillCircle(breath.x, breath.y, breath.size * circle);
 
   // breath area
-  g.setColor(breath.textcolor);
+  g.setColor(circleColor);
   g.drawCircle(breath.x, breath.y, breath.size);
 
   // draw text
   g.setFontAlign(0, 0).setFont(breath.font, breath.fontsize).setColor(breath.textcolor);
 
-  if (time < breath.in) {
+  if (stage == stages.in) {
     // breath in
     g.drawString("Breath in", breath.x, breath.texty);
 
-  } else if (time < breath.in + breath.keep) {
+  } else if (stage == stages.keepIn) {
     // keep breath
     g.drawString("Keep it in", breath.x, breath.texty);
 
-  } else if (time < breath.in + breath.keep + breath.out) {
+  } else if (stage == stages.out) {
     // breath out
     g.drawString("Breath out", breath.x, breath.texty);
-
+  } else if (stage == stages.keepOut) {
+    // breath out
+    g.drawString("Keep it out", breath.x, breath.texty);
   }
+
+  // draw mode
+  g.setFontAlign(-1, -1).setFont(breath.font, breath.fontsize).setColor(breath.textcolor);
+  g.drawString(mode.title, 0, 0);
 
   // queue draw
   queueDraw();
@@ -126,3 +200,4 @@ Bangle.setLCDPower(1);
 
 // Show launcher when middle button pressed
 Bangle.setUI("clock");
+
