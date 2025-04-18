@@ -1,0 +1,29 @@
+{
+  "id": "breathtimer",
+  "name": "BreathTimer - Meditation breathing timer",
+  "shortName": "BreathTimer",
+  "version": "0.03",
+  "description": "A breathing timer with different modes that helps you relax and meditate. Based on Henkinen by Jukio Kallio.",
+  "icon": "app.png",
+  "screenshots": [
+    {
+      "url": "screenshot1.png"
+    }
+  ],
+  "tags": "outdoors",
+  "supports": [
+    "BANGLEJS2"
+  ],
+  "readme": "README.md",
+  "storage": [
+    {
+      "name": "breathtimer.app.js",
+      "url": "app.js"
+    },
+    {
+      "name": "breathtimer.img",
+      "url": "app-icon.js",
+      "evaluate": true
+    }
+  ]
+}
