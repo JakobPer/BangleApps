@@ -12,8 +12,12 @@ require("FontHaxorNarrow7x17").add(Graphics);
 const breath = {
   theme: "default",
   x: 0, y: 0, w: 0, h: 0,
-  size: 60,
-  thickness: 2,
+  size: 56,
+  thickness: 1,
+
+  shortBuzz: 100,
+  longBuzz: 200,
+  buzzStrength: 0.3,
 
   bgcolor: g.theme.bg,
   incolor: g.toColor(0, 1, 0),
@@ -68,11 +72,13 @@ var settings = Object.assign({
 breath.w = g.getWidth(); // size of the background
 breath.h = g.getHeight();
 breath.x = breath.w * 0.5; // position of the circles
-breath.y = breath.h * 0.45;
+breath.y = breath.h * 0.5;
 breath.texty = breath.y + breath.size + breath.texty; // text position
 
 var wait = 100; // wait time, normally a minute
 var time = 0; // for time keeping
+var startTime = 0;
+var breathCount = 0;
 var mode = modes[settings.modeIndex]; // current mode
 var stage = undefined;
 
@@ -95,13 +101,35 @@ function queueDraw() {
 
 function buzz() {
   if (settings.buzzEnabled) {
-    Bangle.buzz(100, 0.1);
+    Bangle.buzz(breath.shortBuzz, breath.buzzStrength);
   }
 }
 
 function buzzLong() {
   if (settings.buzzEnabled) {
-    Bangle.buzz(300, 0.1);
+    Bangle.buzz(breath.longBuzz, breath.buzzStrength);
+  }
+}
+
+function buzzDouble() {
+  if (settings.buzzEnabled) {
+    Bangle.buzz(breath.shortBuzz, breath.buzzStrength)
+      .then(result => {
+        setTimeout(() => {
+          Bangle.buzz(breath.shortBuzz, breath.buzzStrength);
+        }, 50);
+      });
+  }
+}
+
+function buzzDoubleLong() {
+  if (settings.buzzEnabled) {
+    Bangle.buzz(breath.longBuzz, breath.buzzStrength)
+      .then(result => {
+        setTimeout(() => {
+          Bangle.buzz(breath.longBuzz, breath.buzzStrength);
+        }, 50);
+      });
   }
 }
 
@@ -112,7 +140,7 @@ function buzzDouble() {
         setTimeout(() => {
           Bangle.buzz(50, 1);
         }, 50);
-      })
+      });
   }
 }
 
@@ -138,6 +166,7 @@ function draw() {
   if (time < mode.in) {
     // breath in
     if (stage != stages.in) {
+      breathCount++;
       buzzLong();
     }
     stage = stages.in;
@@ -156,7 +185,7 @@ function draw() {
   } else if (time < mode.in + mode.keepIn + mode.out) {
     // breath out
     if (stage != stages.out) {
-      buzz();
+      buzzDoubleLong();
     }
     stage = stages.out;
     circle = ((mode.in + mode.keepIn + mode.out) - time) / mode.out;
@@ -190,31 +219,39 @@ function draw() {
   g.setColor(fillColor);
   g.fillCircle(breath.x, breath.y, breath.size * circle);
 
+  const padding = 6;
   // draw text
-  g.setFontAlign(0, 0).setFont(breath.font, breath.fontsize).setColor(breath.textcolor);
+  g.setFontAlign(0, 1).setFont(breath.font, breath.fontsize).setColor(breath.textcolor);
 
   if (stage == stages.in) {
     // breath in
-    g.drawString("Breath in", breath.x, breath.texty);
+    g.drawString("Breath in", breath.x, breath.h - padding);
 
   } else if (stage == stages.keepIn) {
     // keep breath
-    g.drawString("Keep it in", breath.x, breath.texty);
+    g.drawString("Keep it in", breath.x, breath.h - padding);
 
   } else if (stage == stages.out) {
     // breath out
-    g.drawString("Breath out", breath.x, breath.texty);
+    g.drawString("Breath out", breath.x, breath.h - padding);
   } else if (stage == stages.keepOut) {
     // breath out
-    g.drawString("Keep it out", breath.x, breath.texty);
+    g.drawString("Keep it out", breath.x, breath.h - padding);
   }
 
   // draw mode
-  const padding = 6;
   g.setFontAlign(-1, -1).setFont(breath.font, breath.fontsize).setColor(breath.textcolor);
   g.drawString(mode.title, padding, padding);
   g.setFontAlign(1, -1).setFont(breath.font, breath.fontsize).setColor(breath.textcolor);
-  g.drawString(settings.buzzEnabled ? "[~]" : "[  ]", 176 - padding, padding);
+  g.drawString(settings.buzzEnabled ? "[~]" : "[  ]", breath.w - padding, padding);
+  g.setFontAlign(1, 1).setFont(breath.font, breath.fontsize).setColor(breath.textcolor);
+  g.drawString(breathCount.toString(), breath.w - padding, breath.h - padding);
+  const delta = Date.now() - startTime;
+  let seconds = Math.floor(delta / 1000);
+  const minutes = Math.floor(seconds / 60);
+  seconds = seconds % 60;
+  g.setFontAlign(-1, 1).setFont(breath.font, breath.fontsize).setColor(breath.textcolor);
+  g.drawString(`${minutes.toString()}:${seconds.toString().padStart(2, "0")}`, padding, breath.h - padding);
 
   // queue draw
   queueDraw();
@@ -244,16 +281,29 @@ Bangle.on('swipe', (dirLR, dirUD) => {
   }
 });
 
+startTime = Date.now();
+
 // Clear the screen once, at startup
 g.clear();
 // draw immediately at first
 draw();
 
 // turning timeout off seems to prevent swipe/touch events???
-//Bangle.setLCDTimeout(0);
+Bangle.setLCDTimeout(0);
 // keep LCD on
 Bangle.setLCDPower(1);
 
 // Show launcher when middle button pressed
-Bangle.setUI();
+Bangle.setUI({
+  mode: "custom",
+  btn: () => {
+    if (!Bangle.isBacklightOn()) {
+      Bangle.setBacklight(1);
+    }
+    else {
+      Bangle.setBacklight(0);
+    }
+  }
+});
+Bangle.setLocked(false);
 
