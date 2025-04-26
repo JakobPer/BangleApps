@@ -277,6 +277,8 @@ Bangle.on('swipe', (dirLR, dirUD) => {
     mode = modes[settings.modeIndex];
     time = 0;
     stage = undefined;
+    startTime = Date.now();
+    breathCount = 0;
     saveSettings();
   }
 });
