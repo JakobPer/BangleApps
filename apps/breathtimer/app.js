@@ -13,11 +13,10 @@ const breath = {
   theme: "default",
   x: 0, y: 0, w: 0, h: 0,
   size: 56,
-  thickness: 1,
+  thickness: 2,
 
   shortBuzz: 100,
-  longBuzz: 200,
-  buzzStrength: 0.3,
+  longBuzz: 300,
 
   bgcolor: g.theme.bg,
   incolor: g.toColor(0, 1, 0),
@@ -61,10 +60,12 @@ const stages = {
   keepOut: 3,
 };
 
+const buzzSymbols = [' ', '-', '=', '~'];
+
 // load settings
 var settings = Object.assign({
   modeIndex: 0,
-  buzzEnabled: false
+  buzzMode: 2
 }, require("Storage").readJSON("breathtimer.json", true) || {});
 
 
@@ -99,42 +100,47 @@ function queueDraw() {
   }, wait - (Date.now() % wait));
 }
 
+function buzzStrength() {
+  // 4 buzz modes, 0 off, 1 = 0.33, 2 = 0.66, 3 = 1
+  return settings.buzzMode / 3.0;
+}
+
 function buzz() {
-  if (settings.buzzEnabled) {
-    Bangle.buzz(breath.shortBuzz, breath.buzzStrength);
+  if (settings.buzzMode > 0) {
+    Bangle.buzz(breath.shortBuzz, buzzStrength());
   }
 }
 
 function buzzLong() {
-  if (settings.buzzEnabled) {
-    Bangle.buzz(breath.longBuzz, breath.buzzStrength);
+  if (settings.buzzMode > 0) {
+    Bangle.buzz(breath.longBuzz, buzzStrength());
   }
 }
 
 function buzzDouble() {
-  if (settings.buzzEnabled) {
-    Bangle.buzz(breath.shortBuzz, breath.buzzStrength)
+  if (settings.buzzMode > 0) {
+    Bangle.buzz(breath.shortBuzz, buzzStrength())
       .then(result => {
         setTimeout(() => {
-          Bangle.buzz(breath.shortBuzz, breath.buzzStrength);
+          Bangle.buzz(breath.shortBuzz, buzzStrength());
         }, 50);
       });
   }
 }
 
 function buzzDoubleLong() {
-  if (settings.buzzEnabled) {
-    Bangle.buzz(breath.longBuzz, breath.buzzStrength)
+  if (settings.buzzMode > 0) {
+    Bangle.buzz(breath.longBuzz, buzzStrength())
       .then(result => {
         setTimeout(() => {
-          Bangle.buzz(breath.longBuzz, breath.buzzStrength);
+          Bangle.buzz(breath.longBuzz, buzzStrength());
         }, 50);
       });
   }
 }
 
 function buzzDouble() {
-  if (settings.buzzEnabled) {
+  if (settings.buzzMode > 0) {
     Bangle.buzz(100, 0.1)
       .then(result => {
         setTimeout(() => {
@@ -243,7 +249,7 @@ function draw() {
   g.setFontAlign(-1, -1).setFont(breath.font, breath.fontsize).setColor(breath.textcolor);
   g.drawString(mode.title, padding, padding);
   g.setFontAlign(1, -1).setFont(breath.font, breath.fontsize).setColor(breath.textcolor);
-  g.drawString(settings.buzzEnabled ? "[~]" : "[  ]", breath.w - padding, padding);
+  g.drawString("[" + buzzSymbols[settings.buzzMode] + "]", breath.w - padding, padding);
   g.setFontAlign(1, 1).setFont(breath.font, breath.fontsize).setColor(breath.textcolor);
   g.drawString(breathCount.toString(), breath.w - padding, breath.h - padding);
   const delta = Date.now() - startTime;
@@ -263,7 +269,7 @@ const height = g.getHeight();
 Bangle.on('touch', (button, info) => {
   // top right
   if (info.x > width * 0.75 && info.y < height * 0.25) {
-    settings.buzzEnabled = !settings.buzzEnabled;
+    settings.buzzMode = (settings.buzzMode + 1) % 4;
     saveSettings();
   }
 });
