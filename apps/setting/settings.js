@@ -27,7 +27,8 @@ function pushMenu(menu) {
 function restoreMenu(menu) {
   // equivalent to pushMenu(null); popMenu(menu);
   if(!menu[""]) menu[""] = {};
-  menu[""].scroll = menuScroller.scroll;
+  if(menuScroller) // may be undefined on BangleJS1
+    menu[""].scroll = menuScroller.scroll;
   menuScroller = E.showMenu(menu).scroller;
 }
 
@@ -1032,8 +1033,8 @@ function showTouchscreenCalibration() {
 // Calibrate altitude - Bangle.js2 only
 function showAltitude() {
   function onPressure(pressure) {
-    menuPressure.value = Math.round(pressure.pressure);
-    menuAltitude.value = Math.round(pressure.altitude);
+    menuPressure.value = Math.round(pressure.pressure).toString(); // toString stops tapping on the item bringing up an adjustment menu
+    menuAltitude.value = Math.round(pressure.altitude).toString();
     m.draw();
   }
   function altitudeDone() {
